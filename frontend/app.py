@@ -45,13 +45,32 @@ refresh = st.sidebar.button("🔄 Refresh")
 # -----------------------------
 # Fetch data from backend
 # -----------------------------
+
+
 @st.cache_data(ttl=300)
 def fetch_all_news(keyword):
-    response = requests.get(
-        f"{BACKEND_URL}/news/all",
-        params={"keyword": keyword}
-    )
-    return response.json()
+    try:
+        response = requests.get(
+            f"{BACKEND_URL}/news/all",
+            params={"keyword": keyword},
+            timeout=20
+        )
+
+        # If backend is not ready or errors
+        if response.status_code != 200:
+            st.error(f"Backend error: {response.status_code}")
+            return []
+
+        # Try parsing JSON safely
+        try:
+            return response.json()
+        except ValueError:
+            st.error("Backend returned invalid response (not JSON). Please retry.")
+            return []
+
+    except requests.exceptions.RequestException as e:
+        st.error("Cannot connect to backend. It may be waking up. Please retry.")
+        return []
 
 
 if refresh:
