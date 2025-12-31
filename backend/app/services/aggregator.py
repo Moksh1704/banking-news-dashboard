@@ -3,10 +3,28 @@ from backend.app.services.youtube_news import fetch_youtube_news
 from datetime import datetime
 import re
 
+
+# -----------------------------
+# Banking relevance filter
+# -----------------------------
+BANKING_KEYWORDS = [
+    "bank", "banking", "rbi", "loan", "interest",
+    "credit", "debit", "npa", "finance", "fintech",
+    "deposit", "repo", "emi", "mortgage"
+]
+
+
+def is_banking_related(text: str) -> bool:
+    if not text:
+        return False
+    text = text.lower()
+    return any(keyword in text for keyword in BANKING_KEYWORDS)
+
+
+# -----------------------------
+# Date parsing
+# -----------------------------
 def parse_date(date_str):
-    """
-    Convert different date formats to datetime.
-    """
     if not date_str:
         return None
 
@@ -24,23 +42,21 @@ def parse_date(date_str):
     return None
 
 
-def clean_text(text, limit=200):
-    """
-    Remove HTML tags and trim text.
-    """
+# -----------------------------
+# Text cleaning
+# -----------------------------
+def clean_text(text, limit=250):
     if not text:
         return ""
 
-    # Remove HTML tags
-    text = re.sub(r"<.*?>", "", text)
-
-    # Replace HTML entities
+    text = re.sub(r"<.*?>", "", text)      # remove HTML
     text = text.replace("&nbsp;", " ")
-
-    # Trim text
     return text[:limit] + "..." if len(text) > limit else text
 
 
+# -----------------------------
+# Aggregation
+# -----------------------------
 def aggregate_news(keyword: str, limit: int = 10):
     web_news = fetch_web_news(keyword, limit)
     youtube_news = fetch_youtube_news(keyword, limit)
@@ -49,6 +65,10 @@ def aggregate_news(keyword: str, limit: int = 10):
 
     # Web news
     for item in web_news:
+        combined_text = f"{item.get('title', '')} {item.get('summary', '')}"
+        if not is_banking_related(combined_text):
+            continue
+
         published_dt = parse_date(item.get("published"))
 
         aggregated.append({
@@ -62,6 +82,10 @@ def aggregate_news(keyword: str, limit: int = 10):
 
     # YouTube news
     for item in youtube_news:
+        combined_text = f"{item.get('title', '')} {item.get('description', '')}"
+        if not is_banking_related(combined_text):
+            continue
+
         published_dt = parse_date(item.get("published"))
 
         aggregated.append({
@@ -80,7 +104,7 @@ def aggregate_news(keyword: str, limit: int = 10):
         reverse=True
     )
 
-    # Convert datetime back to string
+    # Convert datetime → string
     for item in aggregated:
         if item["published"]:
             item["published"] = item["published"].isoformat()
