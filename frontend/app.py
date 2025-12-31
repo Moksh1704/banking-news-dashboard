@@ -23,7 +23,7 @@ def render_card(item):
 # -----------------------------
 # Config
 # -----------------------------
-BACKEND_URL = "http://127.0.0.1:8000"
+BACKEND_URL = "BACKEND_URL = https://banking-news-backend.onrender.com"
 
 st.set_page_config(
     page_title="Banking News Dashboard",
