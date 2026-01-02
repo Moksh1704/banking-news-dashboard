@@ -5,7 +5,7 @@ import requests
 # -----------------------------
 # Config
 # -----------------------------
-BACKEND_URL = "https://banking-news-backend.onrender.com"
+BACKEND_URL = "https://banking-news-dashboard.onrender.com"
 
 
 # -----------------------------
@@ -16,7 +16,7 @@ st.set_page_config(
     layout="wide"
 )
 
-st.title("🏦 Banking News Dashboard")
+st.title("Banking News Dashboard")
 st.caption("Latest banking-related news from Web & YouTube")
 
 
