@@ -1,0 +1,7 @@
+from backend.app.services.url_resolver import resolve_google_news_url
+
+test_url = "https://news.google.com/rss/articles/CBMiugFBVV95cUxOWTRuUm9OajJpVXdsTENMbE8wNmRPb2ttT3BoWWZndkNaTGkzcURsWllrRDRnZ2o4eU0wXzEtT2dQUEZZemJkVW5yMmItX2hrWHN2OTVBcmJfc25KUHF5amFDcm1qNGxyVTBraW9PYmJDSVRKcng3cjA4eDhOQUpGSkFMbmtKNm1TeE93MmZvdmRjcVBIS2xlWkJGOV9ySl9PRDBEd3FuRVNVdmp4bVlIU3BmZmdVNkMtN1E?oc=5"
+
+resolved = resolve_google_news_url(test_url)
+print("Resolved URL:")
+print(resolved)

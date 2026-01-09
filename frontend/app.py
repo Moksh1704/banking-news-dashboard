@@ -1,122 +1,123 @@
 import streamlit as st
 import requests
+from datetime import datetime
 
+# ========================
+# CONFIG
+# ========================
+BACKEND_URL = "http://127.0.0.1:8000"
 
-# -----------------------------
-# Config
-# -----------------------------
-BACKEND_URL = "https://banking-news-dashboard.onrender.com"
-
-
-# -----------------------------
-# Page setup
-# -----------------------------
 st.set_page_config(
     page_title="Banking News Dashboard",
+    page_icon="",
     layout="wide"
 )
 
-st.title("Banking News Dashboard")
-st.caption("Latest banking-related news from Web & YouTube")
+# ========================
+# SIDEBAR — CHATBOT
+# ========================
+with st.sidebar:
+    st.markdown("##  Banking Assistant")
+    st.caption("AI-powered banking intelligence")
 
+    st.write(
+        "Ask questions based **only on the banking news and regulatory data "
+        "collected by this system**."
+    )
 
-# -----------------------------
-# Sidebar controls
-# -----------------------------
-st.sidebar.header("Controls")
-keyword = st.sidebar.text_input("Search keyword", value="banking india")
-refresh = st.sidebar.button("🔄 Refresh")
+    st.divider()
 
+    if "chat_history" not in st.session_state:
+        st.session_state.chat_history = []
 
-# -----------------------------
-# Safe backend fetch (VERY IMPORTANT)
-# -----------------------------
-@st.cache_data(ttl=120)
-def fetch_all_news(keyword):
-    try:
-        response = requests.get(
-            f"{BACKEND_URL}/news/all",
-            params={"keyword": keyword},
-            timeout=25
+    # Display chat history
+    for msg in st.session_state.chat_history:
+        with st.chat_message(msg["role"]):
+            st.markdown(msg["content"])
+
+    user_query = st.chat_input(
+        "Example: What are recent RBI compliance issues?"
+    )
+
+    if user_query:
+        # User message
+        st.session_state.chat_history.append(
+            {"role": "user", "content": user_query}
         )
 
-        if response.status_code != 200:
-            st.warning("Backend is starting up. Please retry.")
-            return []
+        with st.chat_message("assistant"):
+            with st.spinner("Analyzing banking data..."):
+                try:
+                    response = requests.post(
+                        f"{BACKEND_URL}/ask",
+                        json={"question": user_query},
+                        timeout=60
+                    )
 
-        if "application/json" not in response.headers.get("content-type", ""):
-            st.warning("Backend not ready yet. Please retry.")
-            return []
+                    if response.status_code == 200:
+                        answer = response.json().get("answer", "")
+                    else:
+                        answer = "Unable to retrieve response."
 
-        return response.json()
+                except Exception:
+                    answer = "Backend service is not reachable."
 
-    except requests.exceptions.Timeout:
-        st.warning("Backend waking up (cold start). Please retry.")
-        return []
+                st.markdown(answer)
 
-    except requests.exceptions.RequestException:
-        st.warning("Cannot connect to backend. Please retry.")
-        return []
+        st.session_state.chat_history.append(
+            {"role": "assistant", "content": answer}
+        )
 
-    except ValueError:
-        st.warning("Invalid response from backend. Please retry.")
-        return []
+# ========================
+# HEADER
+# ========================
+st.markdown(
+    """
+    <h1 style="margin-bottom:0;"> Banking News Dashboard</h1>
+    <p style="color:gray; margin-top:4px;">
+    Latest curated banking-related news from trusted sources
+    </p>
+    """,
+    unsafe_allow_html=True
+)
 
+st.divider()
 
-if refresh:
-    st.cache_data.clear()
+# ========================
+# NEWS FEED — REAL DATA
+# ========================
+st.subheader("Latest Banking News")
 
+with st.spinner("Fetching latest banking news..."):
+    try:
+        response = requests.get(
+            f"{BACKEND_URL}/news/google",
+            params={"limit": 15},
+            timeout=15
+        )
+        news_articles = response.json()
+    except Exception:
+        news_articles = []
 
-# -----------------------------
-# Load data
-# -----------------------------
-with st.spinner("Fetching latest news..."):
-    data = fetch_all_news(keyword)
+# Debug line (you can remove later)
+st.caption(f"Articles received from backend: {len(news_articles)}")
 
-st.write(f"Total articles: {len(data)}")
+if not news_articles:
+    st.warning("No news articles available at the moment.")
+else:
+    for article in news_articles:
+        with st.container(border=True):
+            st.markdown(f"### {article['title']}")
+            st.caption(f"{article['source']} • {article['published']}")
+            st.write(article["summary"])
 
+            if article.get("url"):
+                st.markdown(f"[Read full article]({article['url']})")
 
-# -----------------------------
-# Split data
-# -----------------------------
-all_news = data
-web_news = [item for item in data if item["source_type"] == "web"]
-yt_news = [item for item in data if item["source_type"] == "youtube"]
-
-
-# -----------------------------
-# Card renderer
-# -----------------------------
-def render_card(item):
-    with st.container():
-        col1, col2 = st.columns([1, 3])
-
-        with col1:
-            if item.get("thumbnail"):
-                st.image(item["thumbnail"], width=220)
-
-        with col2:
-            st.markdown(f"### {item['title']}")
-            st.caption(f"{item['source']} • {item['published']}")
-            st.write(item["summary"])
-            st.markdown(f"🔗 [Read more]({item['link']})")
-
-        st.divider()
-
-
-# -----------------------------
-# Tabs
-# -----------------------------
-tab_all, tab_web, tab_youtube = st.tabs(["All", "Web", "YouTube"])
-
-with tab_all:
-    for item in all_news:
-        render_card(item)
-
-with tab_web:
-    for item in web_news:
-        render_card(item)
-
-with tab_youtube:
-    for item in yt_news:
-        render_card(item)
+# ========================
+# FOOTER
+# ========================
+st.divider()
+st.caption(
+    f"© {datetime.now().year} Banking News Dashboard "
+)

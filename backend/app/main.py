@@ -1,39 +1,89 @@
-from fastapi import FastAPI, Request
-from fastapi.responses import JSONResponse
-from backend.app.routes.news import router as news_router
+from fastapi import FastAPI
+from pydantic import BaseModel
 
-app = FastAPI(title="Banking News Dashboard API")
+# RAG + Vector Store
+from backend.app.services.vector_store import VectorStore
+from backend.app.services.rag_pipeline import RAGPipeline
 
+# RBI ingestion
+from backend.app.services.pdf_parser import extract_text_from_pdf_url
+from backend.app.services.text_cleaner import clean_text
+from backend.app.services.text_chunker import chunk_text
 
-# -----------------------------
-# Health check (important for deployment)
-# -----------------------------
-@app.get("/health")
-def health():
-    return {"status": "ok"}
-
-
-# -----------------------------
-# Include routes
-# -----------------------------
-app.include_router(news_router, prefix="/news")
+# Google News
+from backend.app.services.google_news_rss import fetch_google_news
 
 
-# -----------------------------
-# Root
-# -----------------------------
+# =========================
+# FASTAPI APP
+# =========================
+app = FastAPI(
+    title="Banking News Intelligence API",
+    description="RAG-based backend for banking news and regulatory intelligence",
+    version="1.0"
+)
+
+# =========================
+# LOAD DATA ON STARTUP
+# =========================
+store = VectorStore()
+
+# ---- RBI SOURCE (AUTHORITATIVE) ----
+RBI_PDF_URL = (
+    "https://www.rbi.org.in/commonman/Upload/English/"
+    "PressRelease/PDFs/PR1791.pdf"
+)
+
+raw_text = extract_text_from_pdf_url(RBI_PDF_URL)
+cleaned_text = clean_text(raw_text)
+chunks = chunk_text(cleaned_text)
+
+store.add_documents(chunks)
+
+# Initialize RAG
+rag = RAGPipeline(store)
+
+
+# =========================
+# REQUEST MODELS
+# =========================
+class QueryRequest(BaseModel):
+    question: str
+
+
+# =========================
+# HEALTH CHECK
+# =========================
 @app.get("/")
-def root():
-    return {"status": "API running"}
+def health_check():
+    return {
+        "status": "Banking News Intelligence API running",
+        "sources_loaded": ["RBI PDF"]
+    }
 
 
-# -----------------------------
-# Global exception handler
-# Ensures backend ALWAYS returns JSON
-# -----------------------------
-@app.exception_handler(Exception)
-async def global_exception_handler(request: Request, exc: Exception):
-    return JSONResponse(
-        status_code=500,
-        content={"error": "Internal server error"}
-    )
+# =========================
+# CHATBOT (RAG)
+# =========================
+@app.post("/ask")
+def ask_question(request: QueryRequest):
+    """
+    Answer banking-related questions using RAG
+    """
+    answer = rag.answer(request.question)
+    return {
+        "question": request.question,
+        "answer": answer
+    }
+
+
+# =========================
+# GOOGLE NEWS ENDPOINT
+# =========================
+@app.get("/news/google")
+def get_google_news(limit: int = 10):
+    """
+    Fetch latest banking-related news from Google News RSS
+    """
+    articles = fetch_google_news(limit=limit)
+    return articles
