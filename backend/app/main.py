@@ -1,7 +1,9 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
 
+# =========================
 # RAG + Vector Store
+# =========================
 from backend.app.services.vector_store import VectorStore
 from backend.app.services.rag_pipeline import RAGPipeline
 
@@ -10,8 +12,9 @@ from backend.app.services.pdf_parser import extract_text_from_pdf_url
 from backend.app.services.text_cleaner import clean_text
 from backend.app.services.text_chunker import chunk_text
 
-# Google News
+# News sources
 from backend.app.services.google_news_rss import fetch_google_news
+from backend.app.services.youtube_news import fetch_youtube_news
 
 
 # =========================
@@ -19,29 +22,49 @@ from backend.app.services.google_news_rss import fetch_google_news
 # =========================
 app = FastAPI(
     title="Banking News Intelligence API",
-    description="RAG-based backend for banking news and regulatory intelligence",
+    description="Backend API for banking news aggregation and analysis",
     version="1.0"
 )
 
+
 # =========================
-# LOAD DATA ON STARTUP
+# GLOBAL OBJECTS
 # =========================
 store = VectorStore()
+rag = RAGPipeline(store)
 
-# ---- RBI SOURCE (AUTHORITATIVE) ----
+# ---- RBI SOURCE ----
 RBI_PDF_URL = (
     "https://www.rbi.org.in/commonman/Upload/English/"
     "PressRelease/PDFs/PR1791.pdf"
 )
 
-raw_text = extract_text_from_pdf_url(RBI_PDF_URL)
-cleaned_text = clean_text(raw_text)
-chunks = chunk_text(cleaned_text)
+# Toggle RBI ingestion (VERY IMPORTANT FOR DEV)
+LOAD_RBI_ON_STARTUP = False
 
-store.add_documents(chunks)
 
-# Initialize RAG
-rag = RAGPipeline(store)
+# =========================
+# STARTUP EVENT (FIXED)
+# =========================
+@app.on_event("startup")
+def load_rbi_data():
+    """
+    Load RBI PDF safely on startup.
+    This will NOT crash the server if RBI site is slow.
+    """
+    if not LOAD_RBI_ON_STARTUP:
+        print("ℹ️ RBI ingestion skipped on startup")
+        return
+
+    try:
+        print("⏳ Loading RBI PDF...")
+        raw_text = extract_text_from_pdf_url(RBI_PDF_URL)
+        cleaned_text = clean_text(raw_text)
+        chunks = chunk_text(cleaned_text)
+        store.add_documents(chunks)
+        print("✅ RBI data loaded successfully")
+    except Exception as e:
+        print("⚠️ RBI ingestion failed:", e)
 
 
 # =========================
@@ -58,7 +81,7 @@ class QueryRequest(BaseModel):
 def health_check():
     return {
         "status": "Banking News Intelligence API running",
-        "sources_loaded": ["RBI PDF"]
+        "rbi_loaded": LOAD_RBI_ON_STARTUP
     }
 
 
@@ -85,5 +108,16 @@ def get_google_news(limit: int = 10):
     """
     Fetch latest banking-related news from Google News RSS
     """
-    articles = fetch_google_news(limit=limit)
-    return articles
+    return fetch_google_news(limit=limit)
+
+
+# =========================
+# YOUTUBE NEWS ENDPOINT
+# =========================
+@app.get("/news/youtube")
+def youtube_news(limit: int = 10):
+    """
+    Fetch banking-related YouTube news
+    (LLM relevance + summarization handled inside youtube_news)
+    """
+    return fetch_youtube_news(limit=limit)
