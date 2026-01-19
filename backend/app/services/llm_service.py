@@ -1,24 +1,16 @@
-import subprocess
+import os
+import google.generativeai as genai
+from dotenv import load_dotenv
 
+load_dotenv()
 
-def ask_ollama(prompt: str) -> str:
-    process = subprocess.Popen(
-        ["ollama", "run", "tinyllama"],  # 🔒 FORCE tinyllama
-        stdin=subprocess.PIPE,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True,
-        encoding="utf-8",
-        errors="ignore"
-    )
+genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 
-    stdout, stderr = process.communicate(prompt, timeout=180)
+MODEL = genai.GenerativeModel("gemini-1.5-flash-latest")
 
-    output = (stdout or "").strip()
-    if not output:
-        output = (stderr or "").strip()
-
-    if not output:
-        return "[No response from LLM]"
-
-    return output
+def ask_gemini(prompt: str) -> str:
+    try:
+        response = MODEL.generate_content(prompt)
+        return response.text.strip()
+    except Exception as e:
+        return f"[LLM Error] {e}"

@@ -1,161 +1,176 @@
 import streamlit as st
-import time
-from datetime import datetime, timedelta
+import requests
+from datetime import datetime
 
-# =========================
+# ======================================================
 # CONFIG
-# =========================
-CHAT_EXPIRY_MINUTES = 15
-OFFLINE_MODE = True   # set False when backend is ready
+# ======================================================
+BACKEND_URL = "http://127.0.0.1:8000"
+USE_BACKEND = True  # set False if backend is down
 
-# =========================
-# MOCK DATA (offline mode)
-# =========================
-def load_mock_news():
+st.set_page_config(
+    page_title="Banking News Intelligence System",
+    layout="wide"
+)
+
+# ======================================================
+# HELPERS
+# ======================================================
+def safe_get(url):
+    try:
+        r = requests.get(url, timeout=10)
+        if r.status_code == 200:
+            return r.json()
+    except Exception:
+        pass
+    return []
+
+
+def load_news():
+    if USE_BACKEND:
+        data = safe_get(f"{BACKEND_URL}/news/all")
+        if data:
+            return data
+
+    # ---------- Fallback sample data ----------
     return [
         {
-            "title": "RBI Likely to Maintain Repo Rate",
-            "summary": "The Reserve Bank of India is expected to keep interest rates unchanged while monitoring inflation trends.",
+            "title": "RBI likely to maintain repo rate amid inflation watch",
+            "summary": "Analysts expect the Reserve Bank of India to keep policy rates unchanged.",
             "published": "2026-01-12",
-            "source": "Bloomberg",
-            "url": "#",
-        },
-        {
-            "title": "Indian Banks Report Increase in Credit Demand",
-            "summary": "Banks are seeing higher loan demand from retail consumers and small businesses.",
-            "published": "2026-01-11",
             "source": "Reuters",
             "url": "#",
+            "thumbnail": None,
+            "source_type": "google_news"
         },
+        {
+            "title": "Indian banks see rise in retail credit demand",
+            "summary": "Credit growth remains strong in the retail and MSME segments.",
+            "published": "2026-01-11",
+            "source": "Bloomberg",
+            "url": "#",
+            "thumbnail": None,
+            "source_type": "google_news"
+        }
     ]
 
-# =========================
-# SESSION STATE
-# =========================
-if "chat_messages" not in st.session_state:
-    st.session_state.chat_messages = []
 
-if "chat_start_time" not in st.session_state:
-    st.session_state.chat_start_time = datetime.now()
+def ask_chatbot(query):
+    try:
+        r = requests.post(
+            f"{BACKEND_URL}/chat",
+            json={"query": query},
+            timeout=30
+        )
+        if r.status_code == 200:
+            return r.json().get("answer")
+    except Exception:
+        pass
 
-# =========================
-# CHAT EXPIRY
-# =========================
-if datetime.now() - st.session_state.chat_start_time > timedelta(minutes=CHAT_EXPIRY_MINUTES):
-    st.session_state.chat_messages = []
-    st.session_state.chat_start_time = datetime.now()
+    return (
+        "The system is currently running in offline mode. "
+        "This response is a placeholder generated for demonstration."
+    )
 
-# =========================
-# PAGE HEADER
-# =========================
+
+# ======================================================
+# HEADER
+# ======================================================
 st.title("Banking News Intelligence System")
 st.caption(
-    "A system for aggregating banking news and answering financial questions using large language models and retrieval-based techniques"
+    "An AI-powered system for aggregating banking news and answering "
+    "financial questions using retrieval-augmented generation"
 )
 
-# =========================
+# ======================================================
 # TABS
-# =========================
-tab_news, tab_chat = st.tabs(
-    ["Banking News Dashboard", "Banking Question Answering"]
-)
+# ======================================================
+tab_news, tab_chat = st.tabs([
+    "Banking News Dashboard",
+    "Banking Question Answering"
+])
 
-# =========================
+# ======================================================
 # TAB 1 — NEWS DASHBOARD
-# =========================
+# ======================================================
 with tab_news:
-    st.header("Banking News Dashboard")
-    st.write(
-        "This section presents recent banking and financial news curated "
-        "from trusted sources and summarized for quick understanding."
-    )
+    st.subheader("Latest Banking News")
 
-    news_items = load_mock_news() if OFFLINE_MODE else []
+    news_items = load_news()
 
-    for item in news_items:
-        with st.container():
-            st.subheader(item["title"])
-            st.caption(f'{item["source"]} | {item["published"]}')
-            st.write(item["summary"])
-            st.link_button("View Original Source", item["url"])
-            st.divider()
+    if not news_items:
+        st.warning("No news available at the moment.")
+    else:
+        for item in news_items:
+            with st.container():
+                st.markdown(f"### {item.get('title')}")
 
-# =========================
-# TAB 2 — CHATBOT (RAG)
-# =========================
+                meta = f"{item.get('source', 'Unknown')} | {item.get('published', '')}"
+                st.caption(meta)
+
+                if item.get("thumbnail"):
+                    st.image(item["thumbnail"], width=350)
+
+                st.write(item.get("summary", ""))
+
+                if item.get("url") and item["url"] != "#":
+                    st.link_button("Read full article / watch video", item["url"])
+
+                st.divider()
+
+# ======================================================
+# TAB 2 — CHATBOT
+# ======================================================
 with tab_chat:
-    st.header("Banking Question Answering System")
+    st.subheader("Banking Question Answering System")
+
     st.write(
-        "This chatbot answers banking and financial questions using "
-        "retrieval-augmented generation over authoritative documents "
-        "such as RBI publications."
+        "Ask questions related to banking regulations, RBI guidelines, "
+        "interest rates, or recent developments. "
+        "Answers are generated using authoritative sources."
     )
 
-    # Display chat history
-    for msg in st.session_state.chat_messages:
-        if msg["role"] == "user":
-            st.chat_message("user").write(msg["content"])
-        else:
-            st.chat_message("assistant").write(msg["content"])
+    # Chat history
+    if "chat_history" not in st.session_state:
+        st.session_state.chat_history = []
 
-    # User input
+    for msg in st.session_state.chat_history:
+        st.chat_message(msg["role"]).write(msg["content"])
+
     user_query = st.chat_input(
-        "Enter a question related to banking, interest rates, or financial regulations"
+        "Enter your banking or finance-related question"
     )
 
     if user_query:
-        st.session_state.chat_messages.append(
+        st.session_state.chat_history.append(
             {"role": "user", "content": user_query}
         )
 
         with st.spinner("Generating response..."):
-            time.sleep(1.5)  # simulate backend delay
+            answer = ask_chatbot(user_query)
 
-            # Replace with: rag.answer(user_query)
-            answer = (
-                "Based on recent RBI guidelines and banking data, "
-                "interest rates are expected to remain stable while "
-                "the central bank continues to focus on inflation control."
-            )
-
-        st.session_state.chat_messages.append(
+        st.session_state.chat_history.append(
             {"role": "assistant", "content": answer}
         )
 
         st.rerun()
 
-    st.caption(
-        "Chat history is maintained temporarily and resets automatically "
-        "after 15 minutes."
-    )
-    st.subheader("Sample Questions")
+    st.markdown("#### Sample Questions")
+    sample_questions = [
+        "What action did RBI recently take against cooperative banks?",
+        "How does repo rate affect bank loans and deposits?",
+        "Summarize the latest RBI press releases",
+    ]
 
-sample_questions = [
-    "What is the role of RBI in controlling inflation?",
-    "How do repo rate changes affect bank loans and deposits?",
-    "What are the recent trends in banking sector credit growth?"
-]
-
-cols = st.columns(len(sample_questions))
-
-for i, question in enumerate(sample_questions):
-    if cols[i].button(question):
-        st.session_state.chat_messages.append(
-            {"role": "user", "content": question}
-        )
-
-        with st.spinner("Generating response..."):
-            time.sleep(1.5)  # simulate backend delay
-
-            # Replace with rag.answer(question) later
-            answer = (
-                "The Reserve Bank of India controls inflation mainly through "
-                "monetary policy tools such as repo rate adjustments, which "
-                "influence borrowing costs and liquidity in the banking system."
+    cols = st.columns(len(sample_questions))
+    for i, q in enumerate(sample_questions):
+        if cols[i].button(q):
+            st.session_state.chat_history.append(
+                {"role": "user", "content": q}
             )
-
-        st.session_state.chat_messages.append(
-            {"role": "assistant", "content": answer}
-        )
-
-        st.rerun()
+            with st.spinner("Generating response..."):
+                answer = ask_chatbot(q)
+            st.session_state.chat_history.append(
+                {"role": "assistant", "content": answer}
+            )
+            st.rerun()
