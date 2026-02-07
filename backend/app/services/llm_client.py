@@ -1,21 +1,7 @@
-import requests
+from typing import Optional
 
-OLLAMA_URL = "http://localhost:11434/api/generate"
-MODEL_NAME = "tinyllama"   # change if your model name is different
+from backend.app.services.llm_service import ask_llm
 
 
-def llm_call(prompt: str, temperature: float = 0.2) -> str:
-    payload = {
-        "model": MODEL_NAME,
-        "prompt": prompt,
-        "stream": False,
-        "options": {
-            "temperature": temperature
-        }
-    }
-
-    response = requests.post(OLLAMA_URL, json=payload, timeout=60)
-    response.raise_for_status()
-
-    data = response.json()
-    return data.get("response", "").strip()
+def llm_call(prompt: str, temperature: float = 0.2) -> Optional[str]:
+    return ask_llm(prompt=prompt, temperature=temperature)
