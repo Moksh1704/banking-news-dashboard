@@ -7,9 +7,11 @@ feedparser==6.0.12
 beautifulsoup4==4.13.4
 python-dotenv==1.2.1
 
-google-generativeai==0.8.3
+groq
 sentence-transformers==2.6.1
 faiss-cpu==1.7.4
 
 pandas==2.3.3
-numpy==2.2.6
+numpy==1.26.4
+pypdf==5.5.0
+PyMuPDF>=1.24.0

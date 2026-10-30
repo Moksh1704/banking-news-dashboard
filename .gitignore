@@ -1,3 +1,36 @@
 venv/
 .env
 __pycache__/
+
+# RBI index build artifacts
+backend/app/data/staging/
+
+# Python bytecode and caches
+*.py[cod]
+*$py.class
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+.nox/
+.coverage
+htmlcov/
+
+# Logs, temporary files, and backups
+*.log
+*.tmp
+*.temp
+*.bak
+*.backup
+*.orig
+*.rej
+*.swp
+*.swo
+*~
+
+# Downloaded local RBI documents
+backend/app/data/*.pdf
+
+# Operating system files
+.DS_Store
+Thumbs.db

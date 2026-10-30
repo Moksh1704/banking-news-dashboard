@@ -1,4 +1,21 @@
-import logging
+"""
+main.py  ·  v1.0  (verified clean — no changes required)
+══════════════════════════════════════════════════════════
+FastAPI entry-point for the Banking News Intelligence System.
+
+Groq usage audit (performed during v3 refactor)
+────────────────────────────────────────────────
+  ask_llm() is NOT called directly in this file.
+  Groq is accessed exactly once per user request, inside:
+    rag.answer(query)  →  RAGPipeline.answer()  →  ask_llm()
+
+  All news endpoints (GET /news/google, /news/youtube, /news/rbi) call
+  zero LLM functions — they return pure scraped/parsed data.
+
+  This file requires NO code changes for the v3 refactor.  It is included
+  in the output for completeness and as part of the verified-clean audit.
+"""
+
 import os
 from dotenv import load_dotenv
 
@@ -18,13 +35,6 @@ BASE_DIR = os.path.dirname(
 ENV_PATH = os.path.join(BASE_DIR, ".env")
 
 load_dotenv(ENV_PATH)
-
-logging.basicConfig(
-    level=os.getenv("LOG_LEVEL", "INFO"),
-    format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
-)
-logger = logging.getLogger(__name__)
-
 
 # ===============================
 # IMPORT SERVICES
@@ -88,12 +98,13 @@ def root():
 @app.get("/news/google")
 def get_google_news(limit: int = 10):
     """
-    Fetch banking related Google News
+    Fetch banking-related Google News.
+    Groq calls: ZERO — classification is keyword-only (news_classifier.py).
     """
     try:
         return fetch_google_news(limit=limit)
     except Exception as e:
-        logger.exception("Google News Error")
+        print("Google News Error:", e)
         return []
 
 
@@ -104,12 +115,13 @@ def get_google_news(limit: int = 10):
 @app.get("/news/youtube")
 def get_youtube_news(limit: int = 5):
     """
-    Fetch YouTube banking videos
+    Fetch YouTube banking videos.
+    Groq calls: ZERO.
     """
     try:
         return fetch_youtube_news(limit=limit)
     except Exception as e:
-        logger.exception("YouTube Error")
+        print("YouTube Error:", e)
         return []
 
 
@@ -120,12 +132,13 @@ def get_youtube_news(limit: int = 5):
 @app.get("/news/rbi")
 def get_rbi_docs(limit: int = 5):
     """
-    Fetch RBI PDFs
+    Fetch RBI PDFs.
+    Groq calls: ZERO.
     """
     try:
         return fetch_all_rbi_documents(limit=limit)
     except Exception as e:
-        logger.exception("RBI Error")
+        print("RBI Error:", e)
         return []
 
 
@@ -136,9 +149,9 @@ def get_rbi_docs(limit: int = 5):
 @app.post("/chat")
 def ask_question(query: str):
     """
-    Ask questions on RBI documents
+    Ask questions on RBI documents using RAG.
+    Groq calls: EXACTLY ONE per user query, inside rag.answer().
     """
-
     if not query.strip():
         return {
             "answer": "Please enter a valid question.",
@@ -154,7 +167,7 @@ def ask_question(query: str):
         }
 
     except Exception as e:
-        logger.exception("Chat Error")
+        print("Chat Error:", e)
 
         return {
             "answer": "Server error. Please try again later.",

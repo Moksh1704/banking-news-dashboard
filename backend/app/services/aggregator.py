@@ -1,4 +1,4 @@
-from backend.app.services.web_news import fetch_web_news
+from backend.app.services.google_news_rss import fetch_google_news
 from backend.app.services.youtube_news import fetch_youtube_news
 from datetime import datetime
 import re
@@ -58,13 +58,14 @@ def clean_text(text, limit=250):
 # Aggregation
 # -----------------------------
 def aggregate_news(keyword: str, limit: int = 10):
-    web_news = fetch_web_news(keyword, limit)
-    youtube_news = fetch_youtube_news(keyword, limit)
+    _ = keyword
+    google_news = fetch_google_news(limit=limit)
+    youtube_news = fetch_youtube_news(limit=limit)
 
     aggregated = []
 
-    # Web news
-    for item in web_news:
+    # Google News
+    for item in google_news:
         combined_text = f"{item.get('title', '')} {item.get('summary', '')}"
         if not is_banking_related(combined_text):
             continue
@@ -72,7 +73,7 @@ def aggregate_news(keyword: str, limit: int = 10):
         published_dt = parse_date(item.get("published"))
 
         aggregated.append({
-            "source_type": "web",
+            "source_type": "google_news",
             "title": item.get("title"),
             "source": item.get("source"),
             "published": published_dt,
@@ -82,7 +83,7 @@ def aggregate_news(keyword: str, limit: int = 10):
 
     # YouTube news
     for item in youtube_news:
-        combined_text = f"{item.get('title', '')} {item.get('description', '')}"
+        combined_text = f"{item.get('title', '')} {item.get('summary', '')}"
         if not is_banking_related(combined_text):
             continue
 
@@ -91,10 +92,10 @@ def aggregate_news(keyword: str, limit: int = 10):
         aggregated.append({
             "source_type": "youtube",
             "title": item.get("title"),
-            "source": item.get("channel"),
+            "source": item.get("source"),
             "published": published_dt,
-            "summary": clean_text(item.get("description")),
-            "link": item.get("video_url"),
+            "summary": clean_text(item.get("summary")),
+            "link": item.get("url"),
             "thumbnail": item.get("thumbnail")
         })
 
