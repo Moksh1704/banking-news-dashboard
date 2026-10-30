@@ -1,3 +1,4 @@
+
 # Banking News Intelligence System
 
 AI-powered Banking News Aggregation and Analysis Platform. This project combines an RBI document search and question-answering backend with a Streamlit dashboard for banking news.

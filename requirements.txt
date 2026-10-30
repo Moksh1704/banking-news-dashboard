@@ -9,7 +9,7 @@ python-dotenv==1.2.1
 
 groq
 sentence-transformers==2.6.1
-faiss-cpu==1.7.4
+scikit-learn==1.7.1
 
 pandas==2.3.3
 numpy==1.26.4
